@@ -13,13 +13,25 @@ export class User {
   @Column()
   email: string
 
-  // TODO: how to make this more secure?
   @Column()
   password: string
 
-  @OneToMany(() => Post, post => post.user)
+  @Column({ nullable: true })
+  bio: string
+
+  @OneToMany(() => Post, post => post.author)
   posts: Post[]
 
-  @OneToMany(() => Comment, comment => comment.user)
+  @OneToMany(() => Comment, comment => comment.author)
   comments: Comment[]
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date
+
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  updatedAt: Date
 }

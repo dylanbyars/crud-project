@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne } from 'typeorm'
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+} from 'typeorm'
 import { User } from '../users/user.entity'
 import { Post } from '../posts/post.entity'
 
@@ -11,8 +17,20 @@ export class Comment {
   content: string
 
   @ManyToOne(() => User, user => user.comments)
-  user: User
+  @JoinColumn({ name: 'authorId' })
+  author: User
 
   @ManyToOne(() => Post, post => post.comments)
+  @JoinColumn({ name: 'postId' })
   post: Post
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date
+
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  updatedAt: Date
 }

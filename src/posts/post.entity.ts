@@ -4,6 +4,7 @@ import {
   Column,
   ManyToOne,
   OneToMany,
+  JoinColumn,
 } from 'typeorm'
 import { User } from '../users/user.entity'
 import { Comment } from '../comments/comment.entity'
@@ -20,8 +21,19 @@ export class Post {
   content: string
 
   @ManyToOne(() => User, user => user.posts)
-  user: User
+  @JoinColumn({ name: 'authorId' })
+  author: User
 
   @OneToMany(() => Comment, comment => comment.post)
   comments: Comment[]
+
+  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  createdAt: Date
+
+  @Column({
+    type: 'timestamp',
+    default: () => 'CURRENT_TIMESTAMP',
+    onUpdate: 'CURRENT_TIMESTAMP',
+  })
+  updatedAt: Date
 }
