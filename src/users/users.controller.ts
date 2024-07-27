@@ -8,12 +8,14 @@ import {
   Delete,
   ClassSerializerInterceptor,
   UseInterceptors,
+  UseGuards,
 } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger'
+import { ApiTags, ApiOperation, ApiResponse, ApiParam, ApiBearerAuth } from '@nestjs/swagger'
 import { UsersService } from './users.service'
 import { CreateUserDto } from './dto/create-user.dto'
 import { UpdateUserDto } from './dto/update-user.dto'
 import { User } from './user.entity'
+import { JwtAuthGuard } from 'src/auth/jwt-auth.guard'
 
 @ApiTags('users')
 @Controller('users')
@@ -47,6 +49,17 @@ export class UsersController {
   @ApiResponse({ status: 404, description: 'User not found.' })
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(+id)
+  }
+
+  @Get('email/:email')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Find a user by email' })
+  @ApiBearerAuth()
+  @ApiParam({ name: 'email', description: 'Email of the user to find' })
+  @ApiResponse({ status: 200, description: 'The found user', type: User })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  findByEmail(@Param('email') email: string) {
+    return this.usersService.findByEmail(email)
   }
 
   @Patch(':id')

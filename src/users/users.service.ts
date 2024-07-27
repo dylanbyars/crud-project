@@ -1,3 +1,4 @@
+import * as bcrypt from 'bcrypt'
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -13,15 +14,27 @@ export class UsersService {
   ) {}
 
   async create(createUserDto: CreateUserDto): Promise<User> {
-    const user = this.usersRepository.create(createUserDto)
-    console.log(user)
-    const res = await this.usersRepository.save(user)
-    console.log(res)
-    return res
+    const { password, ...rest } = createUserDto
+
+    // Hash the password
+    const saltRounds = 10
+    const hashedPassword = await bcrypt.hash(password, saltRounds)
+
+    // Create a new user with the hashed password
+    const user = this.usersRepository.create({
+      ...rest,
+      password: hashedPassword,
+    })
+
+    return this.usersRepository.save(user)
   }
 
   async findAll(): Promise<User[]> {
     return await this.usersRepository.find()
+  }
+
+  async findByEmail(email: string): Promise<User | undefined> {
+    return this.usersRepository.findOne({ where: { email } })
   }
 
   async findOne(id: number): Promise<User> {
