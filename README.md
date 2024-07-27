@@ -11,6 +11,7 @@
   - [Guards](#guards)
   - [Custom Decorators](#custom-decorators)
   - [Pipes](#pipes)
+  - [Caching](#caching)
 - [GraphQL Integration](#graphql-integration)
   - [Setup](#setup)
   - [Resolvers](#resolvers)
@@ -223,6 +224,65 @@ Benefits of using the `ValidationPipe` include:
 - Cleaner controller code by moving validation logic to DTOs
 
 This approach ensures that only valid data is processed by the application, enhancing overall data integrity and security.
+
+### Caching
+
+This project could benefit from implementing query caching using NestJS's built-in cache module to improve performance and reduce database load. Here's an overview of how caching could be implemented:
+
+1. Install required packages:
+   ```
+   npm install @nestjs/cache-manager cache-manager
+   ```
+
+2. Configure caching in `AppModule`:
+   ```typescript
+   import { CacheModule, CacheInterceptor } from '@nestjs/common';
+   import { APP_INTERCEPTOR } from '@nestjs/core';
+
+   @Module({
+     imports: [
+       CacheModule.register({
+         ttl: 60 * 5, // 5 minutes
+         max: 100, // maximum number of items in cache
+       }),
+       // other imports
+     ],
+     providers: [
+       {
+         provide: APP_INTERCEPTOR,
+         useClass: CacheInterceptor,
+       },
+       // other providers
+     ],
+   })
+   export class AppModule {}
+   ```
+
+3. Apply caching to services or controllers:
+   ```typescript
+   @Injectable()
+   @UseInterceptors(CacheInterceptor)
+   export class UsersService {
+     @CacheTTL(30) // Cache for 30 seconds
+     async findAll(): Promise<User[]> {
+       return await this.usersRepository.find();
+     }
+   }
+   ```
+
+   ```typescript
+   @Controller('users')
+   @UseInterceptors(CacheInterceptor)
+   export class UsersController {
+     @Get()
+     @CacheTTL(60) // Cache for 60 seconds
+     findAll() {
+       return this.usersService.findAll();
+     }
+   }
+   ```
+
+Implementing caching would significantly reduce database load for frequently accessed data. Cache duration could be adjusted as needed for different endpoints or services. Future enhancements could include using Redis for distributed caching and implementing automatic cache invalidation strategies.
 
 ## GraphQL Integration
 
