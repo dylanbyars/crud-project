@@ -1,62 +1,84 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { INestApplication } from '@nestjs/common'
+import { INestApplication, ValidationPipe } from '@nestjs/common'
 import * as request from 'supertest'
 import { AppModule } from './../src/app.module'
-import { getRepositoryToken } from '@nestjs/typeorm'
-import { Comment } from '../src/comments/comment.entity'
-import { User } from '../src/users/user.entity'
-import { Post } from '../src/posts/post.entity'
-import { generateUsername } from './username-generator.util'
+import { DataSource } from 'typeorm'
+import { generateEmail } from './email-generator.util'
+import { User } from 'src/users/user.entity'
+import { Post } from 'src/posts/post.entity'
+import { Comment } from 'src/comments/comment.entity'
 
 describe('CommentsController (e2e)', () => {
   let app: INestApplication
-  let commentRepository
-  let userRepository
-  let postRepository
-  let testUser
-  let testPost
+  let dataSource: DataSource
+  let jwtToken: string
+  const email = generateEmail()
+  const password = 'password123'
+  let user: User
+  let post: Post
+  let comment: Comment
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile()
-
     app = moduleFixture.createNestApplication()
+    app.useGlobalPipes(new ValidationPipe())
     await app.init()
+    dataSource = app.get(DataSource)
 
-    commentRepository = moduleFixture.get(getRepositoryToken(Comment))
-    userRepository = moduleFixture.get(getRepositoryToken(User))
-    postRepository = moduleFixture.get(getRepositoryToken(Post))
+    // create user
+    const userResponse = await request(app.getHttpServer())
+      .post('/users')
+      .send({
+        email,
+        password,
+        bio: 'I am a test user',
+      })
+      .expect(201)
 
-    // Create a test user
-    testUser = await userRepository.save({
-      username: generateUsername(),
-      email: 'test@example.com',
-      password: 'password123',
-    })
+    user = userResponse.body
 
-    // Create a test post
-    testPost = await postRepository.save({
-      title: 'Test Post',
-      content: 'This is a test post content',
-      author: testUser,
-    })
+    // create jwt
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email,
+        password,
+      })
+      .expect(201)
+    expect(loginResponse.body).toHaveProperty('access_token')
+    jwtToken = loginResponse.body.access_token
+
+    // create post
+    const postResponse = await request(app.getHttpServer())
+      .post('/posts')
+      .send({
+        title: 'test post',
+        content: 'This is the content of my post.',
+      })
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(201)
+
+    post = postResponse.body
   })
 
   afterAll(async () => {
+    await dataSource.destroy()
     await app.close()
   })
 
   it('/comments (POST)', async () => {
     const newComment = {
       content: 'This is a test comment',
-      authorId: testUser.id,
-      postId: testPost.id,
+      authorId: user.id,
+      postId: post.id,
     }
 
     const response = await request(app.getHttpServer())
       .post('/comments')
       .send(newComment)
+      .set('Authorization', `Bearer ${jwtToken}`)
       .expect(201)
 
     expect(response.body).toHaveProperty('id')
@@ -66,6 +88,7 @@ describe('CommentsController (e2e)', () => {
   it('/comments (GET)', async () => {
     const response = await request(app.getHttpServer())
       .get('/comments')
+      .set('Authorization', `Bearer ${jwtToken}`)
       .expect(200)
 
     expect(response.body).toBeInstanceOf(Array)
@@ -74,44 +97,49 @@ describe('CommentsController (e2e)', () => {
     expect(response.body[0]).toHaveProperty('content')
   })
 
-  it('/comments/:id (GET)', async () => {
-    const comment = await commentRepository.findOne({ where: {} })
+  it('/comments (GET) - get all comments', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/comments')
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(200)
+    expect(Array.isArray(response.body)).toBe(true)
+    expect(response.body.length).toBeGreaterThan(0)
+    expect(response.body[0]).toHaveProperty('author')
+    comment = response.body[0]
+  })
+
+  it('/comments/:id (GET) - get a single comment', async () => {
+    const response = await request(app.getHttpServer())
+      .get(`/comments/${comment.id}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(200)
+    expect(response.body).toHaveProperty('content')
+  })
+
+  it('/comments/:id (PATCH) - update a comment', async () => {
+    const newContent = 'yaya'
+    await request(app.getHttpServer())
+      .patch(`/comments/${comment.id}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .send({ content: newContent })
+      .expect(200)
 
     const response = await request(app.getHttpServer())
       .get(`/comments/${comment.id}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
       .expect(200)
-
-    expect(response.body).toHaveProperty('id', comment.id)
-    expect(response.body).toHaveProperty('content', comment.content)
+    expect(response.body).toHaveProperty('content', newContent)
   })
 
-  it('/comments/:id (PATCH)', async () => {
-    const comment = await commentRepository.findOne({ where: {} })
-
-    const updatedData = {
-      content: 'Updated comment content',
-    }
-
-    const response = await request(app.getHttpServer())
-      .patch(`/comments/${comment.id}`)
-      .send(updatedData)
-      .expect(200)
-
-    expect(response.body).toHaveProperty('id', comment.id)
-    expect(response.body).toHaveProperty('content', updatedData.content)
-  })
-
-  it('/comments/:id (DELETE)', async () => {
-    const comment = await commentRepository.findOne({ where: {} })
-
+  it('/comments/:id (DELETE) - delete a comment', async () => {
     await request(app.getHttpServer())
       .delete(`/comments/${comment.id}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
       .expect(200)
-
-    // Verify the comment has been deleted
-    const deletedComment = await commentRepository.findOne({
-      where: { id: comment.id },
-    })
-    expect(deletedComment).toBeNull()
+    // Verify that the comment has been deleted
+    return request(app.getHttpServer())
+      .get(`/comments/${post.id}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(404)
   })
 })

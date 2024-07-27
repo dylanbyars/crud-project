@@ -6,15 +6,24 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
 } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger'
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { CommentsService } from './comments.service'
 import { CreateCommentDto } from './dto/create-comment.dto'
 import { UpdateCommentDto } from './dto/update-comment.dto'
 import { Comment } from './comment.entity'
 
 @ApiTags('comments')
+@UseGuards(JwtAuthGuard)
 @Controller('comments')
+@ApiBearerAuth()
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
