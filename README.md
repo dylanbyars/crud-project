@@ -53,6 +53,8 @@ Run the following command to execute end-to-end tests:
 
 `npm run test:e2e`
 
+I focused on more integration-y tests because I feel like they're more valuable. They take a little more to write but they also test more and they test things in the ways that real users interact with a system.
+
 ## Key Concepts and Implementation
 
 ### Interceptors
