@@ -6,6 +6,8 @@ import {
   Patch,
   Param,
   Delete,
+  ClassSerializerInterceptor,
+  UseInterceptors,
 } from '@nestjs/common'
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger'
 import { UsersService } from './users.service'
@@ -15,6 +17,7 @@ import { User } from './user.entity'
 
 @ApiTags('users')
 @Controller('users')
+@UseInterceptors(ClassSerializerInterceptor)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
