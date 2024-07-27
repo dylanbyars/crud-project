@@ -6,15 +6,25 @@ import {
   Patch,
   Param,
   Delete,
+  UseGuards,
+  Request,
 } from '@nestjs/common'
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger'
+import {
+  ApiTags,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+} from '@nestjs/swagger'
 import { PostsService } from './posts.service'
 import { CreatePostDto } from './dto/create-post.dto'
 import { UpdatePostDto } from './dto/update-post.dto'
 import { Post as PostEntity } from './post.entity'
+import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 
 @ApiTags('posts')
+@UseGuards(JwtAuthGuard)
 @Controller('posts')
+@ApiBearerAuth()
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
@@ -25,8 +35,8 @@ export class PostsController {
     description: 'The post has been successfully created.',
     type: PostEntity,
   })
-  create(@Body() createPostDto: CreatePostDto) {
-    return this.postsService.create(createPostDto)
+  create(@Request() req, @Body() createPostDto: CreatePostDto) {
+    return this.postsService.create(createPostDto, req.user.userId)
   }
 
   @Get()

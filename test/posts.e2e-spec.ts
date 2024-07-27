@@ -1,130 +1,111 @@
 import { Test, TestingModule } from '@nestjs/testing'
-import { INestApplication } from '@nestjs/common'
+import { INestApplication, ValidationPipe } from '@nestjs/common'
 import * as request from 'supertest'
 import { AppModule } from './../src/app.module'
-import { getRepositoryToken } from '@nestjs/typeorm'
-import { Post } from '../src/posts/post.entity'
-import { User } from '../src/users/user.entity'
-import { generateUsername } from './username-generator.util'
+import { DataSource } from 'typeorm'
+import { generateEmail } from './email-generator.util'
 
 describe('PostsController (e2e)', () => {
   let app: INestApplication
-  let postRepository
-  let userRepository
-
-  let user
+  let dataSource: DataSource
+  let jwtToken: string
+  const email = generateEmail()
+  const password = 'password123'
+  let postId: number
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile()
-
     app = moduleFixture.createNestApplication()
+    app.useGlobalPipes(new ValidationPipe())
     await app.init()
+    dataSource = app.get(DataSource)
 
-    postRepository = moduleFixture.get(getRepositoryToken(Post))
-    userRepository = moduleFixture.get(getRepositoryToken(User))
+    await request(app.getHttpServer())
+      .post('/users')
+      .send({
+        email,
+        password,
+        bio: 'I am a test user',
+      })
+      .expect(201)
 
-    // create a user
-    user = await userRepository.save({
-      username: generateUsername(),
-      email: 'test@example.com',
-      password: 'password123',
-    })
+    const loginResponse = await request(app.getHttpServer())
+      .post('/auth/login')
+      .send({
+        email,
+        password,
+      })
+      .expect(201)
+    expect(loginResponse.body).toHaveProperty('access_token')
+    jwtToken = loginResponse.body.access_token
   })
 
   afterAll(async () => {
+    await dataSource.destroy()
     await app.close()
   })
 
-  it('/posts (POST)', async () => {
-    const newPost = {
-      title: 'Test Post',
-      content: 'This is a test post content',
-      authorId: user.id,
-    }
-
+  it('/posts (POST) - create a post', async () => {
     const response = await request(app.getHttpServer())
       .post('/posts')
-      .send(newPost)
+      .send({
+        title: 'My First Post',
+        content: 'This is the content of my first post.',
+      })
+      .set('Authorization', `Bearer ${jwtToken}`)
       .expect(201)
-
     expect(response.body).toHaveProperty('id')
-    expect(response.body.title).toBe(newPost.title)
-    expect(response.body.content).toBe(newPost.content)
+    postId = response.body.id
   })
 
-  it('/posts (GET)', async () => {
-    // NOTE: this is a good example of why the tests _should_ run against a test db that can be wiped away whenever. I'd definitely set that up for a real project.
-    // Create some test posts
-    await postRepository.save([
-      { title: 'Post 1', content: 'Content 1', author: user },
-      { title: 'Post 2', content: 'Content 2', author: user },
-    ])
-
+  it('/posts (GET) - get all posts', async () => {
     const response = await request(app.getHttpServer())
       .get('/posts')
+      .set('Authorization', `Bearer ${jwtToken}`)
       .expect(200)
-
-    expect(response.body).toBeInstanceOf(Array)
+    expect(Array.isArray(response.body)).toBe(true)
     expect(response.body.length).toBeGreaterThan(0)
-    expect(response.body[0]).toHaveProperty('id')
-    expect(response.body[0]).toHaveProperty('title')
-    expect(response.body[0]).toHaveProperty('content')
+    expect(response.body[0]).toHaveProperty('author')
+    postId = response.body[0].id
   })
 
-  it('/posts/:id (GET)', async () => {
-    // Create a test post
-    const post = await postRepository.save({
-      title: 'Test Post',
-      content: 'This is a test post content',
-      author: user,
-    })
-
+  it('/posts/:id (GET) - get a single post', async () => {
     const response = await request(app.getHttpServer())
-      .get(`/posts/${post.id}`)
+      .get(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(200)
+    expect(response.body).toHaveProperty('id', postId)
+    expect(response.body).toHaveProperty('author')
+  })
+
+  it('/posts/:id (PATCH) - update a post', async () => {
+    const newContent = 'yaya'
+    await request(app.getHttpServer())
+      .patch(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .send({
+        content: newContent,
+      })
       .expect(200)
 
-    expect(response.body).toHaveProperty('id', post.id)
-    expect(response.body).toHaveProperty('title', post.title)
-    expect(response.body).toHaveProperty('content', post.content)
-  })
-
-  it('/posts/:id (PATCH)', async () => {
-    // Create a test post
-    const post = await postRepository.save({
-      title: 'Original Title',
-      content: 'Original content',
-      author: user,
-    })
-
-    const updatedData = {
-      title: 'Updated Title',
-      content: 'Updated content',
-    }
-
     const response = await request(app.getHttpServer())
-      .patch(`/posts/${post.id}`)
-      .send(updatedData)
+      .get(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
       .expect(200)
-
-    expect(response.body).toHaveProperty('id', post.id)
-    expect(response.body).toHaveProperty('title', updatedData.title)
-    expect(response.body).toHaveProperty('content', updatedData.content)
+    expect(response.body).toHaveProperty('content', newContent)
   })
 
-  it('/posts/:id (DELETE)', async () => {
-    // Create a test post
-    const post = await postRepository.save({
-      title: 'Test Post',
-      content: 'This is a test post content',
-      author: user,
-    })
-
-    await request(app.getHttpServer()).delete(`/posts/${post.id}`).expect(200)
-
-    // Verify the post has been deleted
-    const deletedPost = await postRepository.findOne({ where: { id: post.id } })
-    expect(deletedPost).toBeNull()
+  it('/posts/:id (DELETE) - delete a post', async () => {
+    await request(app.getHttpServer())
+      .delete(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(200)
+    // Verify that the post has been deleted
+    return request(app.getHttpServer())
+      .get(`/posts/${postId}`)
+      .set('Authorization', `Bearer ${jwtToken}`)
+      .expect(404)
   })
 })
