@@ -10,15 +10,15 @@ export class User {
   @PrimaryGeneratedColumn()
   id: number
 
-  @ApiProperty({ example: 'johndoe', description: 'The username of the user' })
-  @Column({ unique: true })
-  username: string
+  @ApiProperty({ example: 'baz', description: 'The first name of the user' })
+  @Column({ nullable: true })
+  firstName: string
 
   @ApiProperty({
     example: 'john@example.com',
     description: 'The email of the user',
   })
-  @Column()
+  @Column({ unique: true })
   email: string
 
   @ApiProperty({

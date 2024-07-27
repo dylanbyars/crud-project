@@ -6,13 +6,14 @@ import { JwtModule } from '@nestjs/jwt'
 import { JwtStrategy } from './jwt.strategy'
 import { AuthController } from './auth.controller'
 import { LocalStrategy } from './local.strategy'
+import { JWT_SECRET } from '../constants'
 
 @Module({
   imports: [
     UsersModule,
     PassportModule,
     JwtModule.register({
-      secret: 'your-secret-key', // In production, use environment variables
+      secret: JWT_SECRET,
       signOptions: { expiresIn: '60m' },
     }),
   ],
