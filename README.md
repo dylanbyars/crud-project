@@ -1,5 +1,24 @@
 # CRUD Project
 
+## Table of Contents
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [API Documentation](#api-documentation)
+- [Testing](#testing)
+- [Key Concepts and Implementation](#key-concepts-and-implementation)
+  - [Interceptors](#interceptors)
+  - [Guards](#guards)
+  - [Custom Decorators](#custom-decorators)
+  - [Pipes](#pipes)
+- [GraphQL Integration](#graphql-integration)
+  - [Setup](#setup)
+  - [Resolvers](#resolvers)
+  - [GraphQL Types](#graphql-types)
+  - [Accessing GraphQL Playground](#accessing-graphql-playground)
+  - [Benefits of GraphQL](#benefits-of-graphql)
+  - [Coexistence with REST](#coexistence-with-rest)
+
 This project is a CRUD (Create, Read, Update, Delete) API built with NestJS, TypeORM, and PostgreSQL. It demonstrates an API including authentication, authorization, and data validation.
 
 ## Features
@@ -28,15 +47,15 @@ The project follows a modular structure, with separate modules for users, posts,
 
 API documentation is available via Swagger UI. After starting the server, navigate to `http://localhost:3000/api` in your web browser to view the interactive API documentation.
 
-## Test it!
+## Testing
+
+Run the following command to execute end-to-end tests:
 
 `npm run test:e2e`
 
 ## Key Concepts and Implementation
 
-### 1. Interceptors
-
-#### ClassSerializerInterceptor and Excluding Sensitive Data
+### Interceptors
 
 The `ClassSerializerInterceptor` in NestJS works in conjunction with class-transformer decorators to exclude or expose specific properties when serializing objects. However, it doesn't automatically exclude sensitive information on its own. The exclusion of sensitive data, like passwords, is actually achieved through the use of the `@Exclude()` decorator from the `class-transformer` library.
 
@@ -80,7 +99,7 @@ It's important to note that this exclusion happens at the serialization level, w
 
 This approach provides a clean way to manage which data is exposed via your API without having to manually filter it in each route handler.
 
-### 2. Guards
+### Guards
 
 Guards are used for authentication and authorization. The project uses two main guards:
 
@@ -108,7 +127,7 @@ async login(@Request() req) {
 }
 ```
 
-### 3. Custom Decorators
+### Custom Decorators
 
 The project includes a custom `@Public()` decorator to mark routes that should be publicly accessible without authentication.
 
@@ -131,11 +150,9 @@ create(@Body() createUserDto: CreateUserDto) {
 }
 ```
 
-### 4. Pipes
+### Pipes
 
 Pipes in NestJS are used for data transformation and validation. This project primarily uses the `ValidationPipe`, which is applied globally to validate incoming request data against DTO (Data Transfer Object) schemas.
-
-#### Global ValidationPipe
 
 The `ValidationPipe` is configured globally in `main.ts`:
 
@@ -154,8 +171,6 @@ This configuration does the following:
 1. `whitelist: true`: Strips out properties that don't have any decorators in the DTO.
 2. `forbidNonWhitelisted: true`: Throws an error if non-whitelisted properties are present.
 3. `transform: true`: Automatically transforms incoming payloads to be instances of their respective DTO classes.
-
-#### How It Works
 
 The `ValidationPipe` works in conjunction with DTO classes that use class-validator decorators. For example, in the `CreateUserDto`:
 
@@ -182,7 +197,7 @@ When a request is made to create a user, the `ValidationPipe` will:
 4. Remove any additional properties not defined in the DTO.
 5. If any validation fails, it will return a 400 Bad Request error with details about the validation failure.
 
-#### Benefits
+Benefits of using the `ValidationPipe` include:
 
 - Automatic validation of incoming data
 - Type safety when working with data in controllers and services
@@ -190,8 +205,6 @@ When a request is made to create a user, the `ValidationPipe` will:
 - Cleaner controller code by moving validation logic to DTOs
 
 This approach ensures that only valid data is processed by the application, enhancing overall data integrity and security.
-
-## GraphQL
 
 ## GraphQL Integration
 
@@ -225,6 +238,32 @@ This configuration:
 ### Resolvers
 
 The project uses resolvers to define GraphQL operations. For example, the `UsersResolver` (`src/users/users.resolver.ts`) defines queries and mutations for user-related operations:
+
+```typescript
+import { Resolver, Query, Mutation, Args } from '@nestjs/graphql'
+import { UsersService } from './users.service'
+import { User } from './user.schema'
+
+@Resolver(() => User)
+export class UsersResolver {
+  constructor(private usersService: UsersService) {}
+
+  @Query(() => [User])
+  async users(): Promise<User[]> {
+    return this.usersService.findAll()
+  }
+
+  @Query(() => User)
+  async user(@Args('id') id: number): Promise<User> {
+    return this.usersService.findOne(id)
+  }
+
+  @Mutation(() => Boolean)
+  async removeUser(@Args('id') id: number): Promise<void> {
+    return this.usersService.remove(id)
+  }
+}
+```
 
 ### GraphQL Types
 
