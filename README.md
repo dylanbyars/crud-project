@@ -12,6 +12,7 @@
   - [Custom Decorators](#custom-decorators)
   - [Pipes](#pipes)
   - [Caching](#caching)
+  - [WebSockets](#websockets)
 - [GraphQL Integration](#graphql-integration)
   - [Setup](#setup)
   - [Resolvers](#resolvers)
@@ -283,6 +284,66 @@ This project could benefit from implementing query caching using NestJS's built-
    ```
 
 Implementing caching would significantly reduce database load for frequently accessed data. Cache duration could be adjusted as needed for different endpoints or services. Future enhancements could include using Redis for distributed caching and implementing automatic cache invalidation strategies.
+
+### WebSockets
+
+This project could be enhanced by implementing WebSockets to enable real-time, bidirectional communication between the server and clients. Here's an overview of how WebSockets could be integrated and utilized:
+
+1. Install required package:
+   ```
+   npm install @nestjs/websockets @nestjs/platform-socket.io
+   ```
+
+2. Create a new WebSocket gateway (e.g., `src/websockets/events.gateway.ts`):
+   ```typescript
+   import { WebSocketGateway, WebSocketServer, SubscribeMessage, MessageBody } from '@nestjs/websockets';
+   import { Server } from 'socket.io';
+
+   @WebSocketGateway()
+   export class EventsGateway {
+     @WebSocketServer()
+     server: Server;
+
+     @SubscribeMessage('newPost')
+     handleNewPost(@MessageBody() data: any): void {
+       this.server.emit('postCreated', data);
+     }
+   }
+   ```
+
+3. Import the WebSocket gateway in `AppModule`:
+   ```typescript
+   import { Module } from '@nestjs/common';
+   import { EventsGateway } from './websockets/events.gateway';
+
+   @Module({
+     // ...other imports
+     providers: [EventsGateway],
+   })
+   export class AppModule {}
+   ```
+
+Potential Use Cases:
+1. Real-time post updates:
+   - When a new post is created, notify all connected clients.
+   - Update post list on client-side without refreshing the page.
+
+2. Live commenting:
+   - Show new comments instantly across all connected clients.
+
+3. User activity notifications:
+   - Notify users when someone likes their post or follows them.
+
+4. Collaborative editing:
+   - Implement real-time collaborative editing for posts or comments.
+
+Benefits:
+- Enhanced user experience with instant updates.
+- Reduced server load by minimizing polling requests.
+- Enables building more interactive and dynamic features.
+- Facilitates real-time data synchronization across multiple clients.
+
+Implementing WebSockets would significantly improve the real-time capabilities of the application, making it more engaging and responsive to user actions.
 
 ## GraphQL Integration
 
