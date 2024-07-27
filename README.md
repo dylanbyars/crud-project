@@ -39,9 +39,25 @@ The project follows a modular structure, with separate modules for users, posts,
 
 1. Clone the repository
 2. Install dependencies: `npm install`
-3. Set up your PostgreSQL database. I ran it in a `podman` container running the postgres image hosted on dockerhub # TODO: record this
-5. Run migrations: `npm run migration:run`
-6. Start the server: `npm run start:dev`
+3. Set up your PostgreSQL database. I ran it in a `podman` container running the postgres image hosted on dockerhub
+```sh
+# pull the image
+podman pull postgres:13
+
+# run the image
+podman run -d \
+  --name postgres_db_for_crud_app \
+  -e POSTGRES_PASSWORD=<from datasource.ts> \
+  -e POSTGRES_USER=<from datasource.ts>\
+  -e POSTGRES_DB=<from datasource.ts>\
+  -p 5432:5432 \
+  postgres:13
+
+# check that it's running
+podman ps
+```
+4. Run migrations: `npm run migration:run` (NOTE: uncomment them first. had issues with the nest project compilation configs properly dealing with those migration files when they're in `/src` but I wanted to keep it all in the same repo. After migrations run, comment the migration files out again before starting the nest dev server)
+5. Start the server: `npm run start:dev`
 
 ## API Documentation
 
